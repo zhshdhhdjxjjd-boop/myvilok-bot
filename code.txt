@@ -1,0 +1,59 @@
+import os
+import discord
+from discord.ext import commands
+import requests
+
+intents = discord.Intents.default()
+intents.message_content = True
+
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+FIREBASE_URL = "https://conserol-default-rtdb.firebaseio.com"
+
+
+@bot.event
+async def on_ready():
+    print(f"Logged in as: {bot.user}")
+    print("myvilok Bot AI is online and connected to Firebase!")
+
+
+@bot.command(name="web")
+async def web_bot(ctx, target: str = None, version_num: str = None):
+    if target and target.lower() == "bot":
+        clean_num = ""
+        if version_num:
+            clean_num = version_num.replace("/", "").strip()
+
+        if not clean_num:
+            await ctx.send("⚠️ الرجاء تحديد رقم النسخة، مثال: `!web bot /9`")
+            return
+
+        url = f"{FIREBASE_URL}/versions/{clean_num}.json"
+
+        try:
+            response = requests.get(url)
+            data = response.json()
+
+            if data and isinstance(data, dict):
+                v_name = data.get("name", f"Version {clean_num}")
+                v_status = data.get("status", "unknown")
+                v_link = data.get("link", "لا يوجد رابط متاح")
+
+                if v_status == "موجودة" or v_status == "available":
+                    embed = discord.Embed(
+                        title=f"🔍 نتيجة البحث: {v_name}",
+                        description=f"الحالة: **متوفرة ✅**\n\n**الرابط / الكود:**\n`{v_link}`",
+                        color=discord.Color.green()
+                    )
+                    await ctx.send(embed=embed)
+                else:
+                    await ctx.send(f"❌ النسخة `{clean_num}` غير متوفرة حالياً.")
+            else:
+                await ctx.send(f"⚠️ لا توجد بيانات للنسخة `{clean_num}` في قاعدة البيانات.")
+        except Exception as e:
+            await ctx.send(f"❌ حدث خطأ في الاتصال بقاعدة البيانات: `{e}`")
+    else:
+        await ctx.send("الاستخدام الصحيح: `!web bot /9`")
+
+
+bot.run(os.getenv("DISCORD_TOKEN"))
